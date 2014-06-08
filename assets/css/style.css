@@ -1,0 +1,8 @@
+#rss-message {
+    display: none;
+}
+
+form.digest textarea {
+    width:550px;
+    height:250px;
+}
