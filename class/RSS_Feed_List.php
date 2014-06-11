@@ -80,7 +80,8 @@ function get_sortable_columns() {
         return sprintf(
             '<input type="checkbox" name="%1$s[]" value="%2$s" />',
             $this->_args['singular'],
-            $item->id);
+            is_object($item)?$item->fid:''
+        );
     }
 
     function column_title($item) {
