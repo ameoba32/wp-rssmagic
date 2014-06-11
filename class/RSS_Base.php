@@ -197,5 +197,22 @@ class RSS_Base {
     public function getPluginName() {
         return $this->_pluginName;
     }
+
+    /**
+     * Simple logger though PHP/Wordpress system
+     *
+     * @param $message
+     * @param null $data
+     */
+    public function log($message, $data = null)
+    {
+        if (defined('WP_DEBUG') && WP_DEBUG === true) {
+            if ($data !== null) {
+                $message .= '. DATA(' . json_encode($data) . ')';
+            }
+            error_log('[' . $this->_tablePrefix . '] '.$message);
+        }
+    }
+
 }
 

@@ -81,10 +81,14 @@ class RSS_Plugin extends RSS_Base {
     function init() {
         //session_start();
         add_action('admin_menu', array($this, 'wp_admin_menu'));
+        add_action('admin_init', array($this, 'wp_admin_init'));
         add_action('wp_ajax_rssmagic', array($this, 'wp_ajax_rssmagic') );
         add_action('admin_enqueue_scripts', array($this, 'wp_enqueue_scripts'));
         add_filter( 'plugin_action_links_' . plugin_basename($this->_rootFile), array($this, 'wp_action_links'));
-        register_activation_hook($this->_rootFile, array($this, 'activation_hook'));
+
+        add_action( $this->_tablePrefix . '_hourly_cron', array('RSS_Cron', 'hourly'));
+
+        register_activation_hook($this->_rootFile, array($this, 'wp_activation_hook'));
     }
 
     /**
@@ -101,6 +105,20 @@ class RSS_Plugin extends RSS_Base {
             $this->pageName('setup'),
             array($this, 'wp_setup')
         );
+    }
+
+    /**
+     * After admin part is init
+     *
+     * @return void
+     */
+    function wp_admin_init() {
+        $installer = new RSS_Install();
+        $installer->checkForUpgrade();
+
+
+        $feed = new RSS_Feed();
+        $feed->updateAll();
     }
 
     /**
@@ -126,7 +144,7 @@ class RSS_Plugin extends RSS_Base {
     /**
      * Called when plugin is activated
      */
-    function activation_hook() {
+    function wp_activation_hook() {
         $installer = new RSS_Install();
         $installer->install();
     }
@@ -263,6 +281,12 @@ class RSS_Plugin extends RSS_Base {
                 'title' => $this->getOption('digest_title'),
             )
         ));
+    }
+
+
+    function getVersion() {
+        $data = get_plugin_data($this->_rootFile);
+        return $data['Version'];
     }
 
 }

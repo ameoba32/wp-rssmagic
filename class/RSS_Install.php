@@ -19,6 +19,18 @@ class RSS_Install extends RSS_Base  {
     }
 
     /**
+     * Checks if plugin was updated and initiates upgrade procedure
+     */
+    function checkForUpgrade()
+    {
+        $plugin = RSS_Plugin::getInstance();
+        if ($plugin->getVersion() != $this->getOption('version')) {
+            $this->install();
+            $this->setOption('version', $plugin->getVersion());
+        }
+    }
+
+    /**
      * Installs or updates plugin database schema
      */
     function install() {
@@ -67,6 +79,10 @@ class RSS_Install extends RSS_Base  {
                   )DEFAULT CHARSET=utf8;
                 ";
                 $this->db()->query($sql);
+                break;
+            case 2:
+                // Install Cron for automatic updates
+                wp_schedule_event( time(), 'hourly', $this->_tablePrefix . '_hourly_cron' );
                 break;
             default:
                 $result = false;

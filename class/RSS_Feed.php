@@ -92,6 +92,7 @@ class RSS_Feed extends RSS_Base {
         }
     }
 
+
     /**
      * Downloads all feed data
      */
@@ -138,6 +139,61 @@ class RSS_Feed extends RSS_Base {
         }
     }
 
+    /**
+     * Updates all feeds using smart update feature based on how frequently feed updates
+     */
+    function updateAll() {
+        $this->log('Updating all feeds');
+
+        $sql = '
+            SELECT
+                feed.fid,
+                feed.fupdated,
+                min(item.fdatetime) as min_date,
+                max(item.fdatetime) as max_date,
+                count(item.fid) as item_count
+            FROM ' . $this->getTableName('feed') . ' as feed
+            LEFT JOIN ' . $this->getTableName('item') . ' as item ON (feed.fid = item.ffeed_id)
+            GROUP BY feed.fid';
+        $feedList = $this->db()->get_results($sql, ARRAY_A);
+
+        $start = time();
+
+        foreach($feedList as $feed) {
+            $lastUpdate = new DateTime($feed['fupdated']);
+
+            // Calculate next update time
+            if ($feed['item_count'] > 0) {
+                // Feed is alive
+                $timeSpan = strtotime($feed['max_date']) - strtotime($feed['min_date']);
+                $updateInterval = intval($timeSpan/$feed['item_count']);
+            } else {
+                $updateInterval = 86400;
+            }
+            // Update at least once per day
+            if ($updateInterval >= 86400) {
+                $updateInterval = 86400;
+            }
+            // But no more than once in hour
+            if ($updateInterval <= 3600) {
+                $updateInterval = 3600;
+            }
+            $nextUpdate = clone $lastUpdate;
+            $nextUpdate->add(new DateInterval("PT{$updateInterval}S"));
+
+            // If next update is already due - update
+            if ($nextUpdate < new DateTime()) {
+                $this->downloadOne($feed['fid']);
+            }
+
+            // Limit update time to one hour max
+            if (time() - $start > 3600) {
+                $this->log('Update feed is running too long, breaking');
+                break;
+            }
+        }
+    }
+
 
     /**
      * Update feed using Id
@@ -145,13 +201,12 @@ class RSS_Feed extends RSS_Base {
      * @param int $feedId Feed identifier
      * @return string
      */
-
     function downloadOne($feedId) {
-        $plugin = RSS_Plugin::getInstance();
+        $this->log('Updating feed', array('fid' => $feedId));
 
-        $feedRow = $plugin->db()->get_row(
-            $plugin->db()->prepare(
-                'select * FROM ' . $plugin->getTableName('feed') . ' WHERE fid = %d',
+        $feedRow = $this->db()->get_row(
+            $this->db()->prepare(
+                'select * FROM ' . $this->getTableName('feed') . ' WHERE fid = %d',
                 $feedId
             ),
             ARRAY_A
@@ -164,8 +219,8 @@ class RSS_Feed extends RSS_Base {
         $feed = fetch_feed( $feedRow['furl'] );
 
         // Mark as updated
-        $plugin->db()->update(
-            $plugin->getTableName('feed'),
+        $this->db()->update(
+            $this->getTableName('feed'),
             array(
                 'fupdated' => date('Y-m-d H:i:s'),
             ),
@@ -182,8 +237,21 @@ class RSS_Feed extends RSS_Base {
         for ($i = 0; $i < $itemQty; $i++) {
             $item = $feed->get_item($i);
 
-            $updated += $plugin->db()->insert(
-                $plugin->getTableName('item'),
+            // Check if feed is already inserted
+            $alreadyExists = $this->db()->get_row(
+                $this->db()->prepare(
+                    'select * FROM ' . $this->getTableName('item') . ' WHERE ffeed_id = %d AND furl = %s',
+                    $feedRow['fid'],
+                    $item->get_link()
+                ),
+                ARRAY_A
+            );
+            if (isset($alreadyExists['fid'])) {
+                continue;
+            }
+
+            $this->db()->insert(
+                $this->getTableName('item'),
                 array(
                     'ffeed_id' => $feedRow['fid'],
                     'ftitle' => $item->get_title(),
@@ -193,6 +261,7 @@ class RSS_Feed extends RSS_Base {
                     'fdatetime' => $item->get_date('Y-m-d H:i:s'),
                 )
             );
+            $updated++;
         }
 
         return ' downloaded ' . $updated . '.';
