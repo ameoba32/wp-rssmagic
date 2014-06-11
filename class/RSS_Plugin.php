@@ -115,10 +115,6 @@ class RSS_Plugin extends RSS_Base {
     function wp_admin_init() {
         $installer = new RSS_Install();
         $installer->checkForUpgrade();
-
-
-        $feed = new RSS_Feed();
-        $feed->updateAll();
     }
 
     /**
