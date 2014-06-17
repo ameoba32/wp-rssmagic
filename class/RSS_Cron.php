@@ -13,9 +13,9 @@ class RSS_Cron extends RSS_Base {
      * Runs on hourly basis
      *
      */
-    function hourly() {
-        $this->log('Starting cron');
+    static public function hourly() {
         $feed = new RSS_Feed();
+        $feed->log('Starting cron');
         $feed->updateAll();
     }
 

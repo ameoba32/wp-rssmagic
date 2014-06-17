@@ -84,6 +84,12 @@ class RSS_Install extends RSS_Base  {
                 // Install Cron for automatic updates
                 wp_schedule_event( time(), 'hourly', $this->_tablePrefix . '_hourly_cron' );
                 break;
+            case 3:
+                // New field for tracking errors
+                $sql = "ALTER TABLE `{$this->_tablePrefix}_feed`
+                   ADD `flasterror` VARCHAR( 200 ) NULL AFTER  `fdescription`;";
+                $this->db()->query($sql);
+                break;
             default:
                 $result = false;
                 break;

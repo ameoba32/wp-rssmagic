@@ -5,7 +5,7 @@ Description: Rss plugin
 Author: Constantin Bosneaga
 Author URI: http://a32.me/
 Email: constantin@bosneaga.com
-Version: 1.2
+Version: 1.3
 */
 
 // Simple pie is included in wordpress

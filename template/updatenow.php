@@ -1,3 +1,6 @@
 <div class="wrap about-wrap">
-    <div id="updatenow">Loading...</div>
 </div>
+
+<script type="text/javascript">
+    updateAll(<?=json_encode($updateList)?>);
+</script>

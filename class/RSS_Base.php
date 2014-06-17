@@ -148,10 +148,11 @@ class RSS_Base {
     /**
      * Returns external variable from request (GET, POST)
      *
-     * @param null $variable
+     * @param string $variable Request variable name
+     * @param mied   $variable Default value if variable not found in the request
      * @return array|null
      */
-    function request($variable = null) {
+    function request($variable = null, $default = null) {
         static $request;
 
         if ($request === null) {
@@ -165,7 +166,7 @@ class RSS_Base {
         if (isset($request[$variable])) {
             return $request[$variable];
         } else {
-            return null;
+            return $default;
         }
     }
 

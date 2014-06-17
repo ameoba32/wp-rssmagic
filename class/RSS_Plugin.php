@@ -98,7 +98,7 @@ class RSS_Plugin extends RSS_Base {
      */
     function wp_admin_menu() {
         add_submenu_page(
-            'options-general.php',
+            'tools.php',
             'RssMagic',
             'RssMagic',
             'manage_options',
@@ -229,14 +229,16 @@ class RSS_Plugin extends RSS_Base {
      * Update now support
      */
     function actionUpdatenow() {
-        $this->setTemplateVariable('page', 'updatenow');
-        $this->render('updatenow');
-    }
-
-    function actionUpdatenowlist() {
         $feed = new RSS_Feed();
-        $feedList = $feed->getList();
-        $this->ajaxResponse(0, '', $feedList);
+
+        $updateList = $feed->getList(
+            array(
+                'fid' => $this->request('id')
+            )
+        );
+
+        $this->setTemplateVariable('page', 'updatenow');
+        $this->render('updatenow', array('updateList' => $updateList));
     }
 
     function actionUpdatenowfeed() {

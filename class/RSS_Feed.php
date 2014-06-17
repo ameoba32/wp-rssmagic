@@ -9,6 +9,18 @@
 
 class RSS_Feed extends RSS_Base {
 
+    function __construct()
+    {
+        add_action('wp_feed_options', function ($feed) {
+            // Assume it is a valid feed url and force parsing it
+            $feed->force_feed(true);
+        });
+        // We cache by ourselves
+        add_action('wp_feed_cache_transient_lifetime', function () {
+            return 1;
+        });
+    }
+
     /**
      * Save feed to database
      *
@@ -218,19 +230,23 @@ class RSS_Feed extends RSS_Base {
 
         $feed = fetch_feed( $feedRow['furl'] );
 
-        // Mark as updated
+        // Mark as updated, even if error occurs
         $this->db()->update(
             $this->getTableName('feed'),
             array(
                 'fupdated' => date('Y-m-d H:i:s'),
+                'flasterror' => ($feed instanceof WP_Error)?$feed->get_error_message():null,
             ),
             array('fid' => $feedRow['fid'])
         );
 
         if (!$feed instanceof SimplePie) {
-            return "Error";
+            if ($feed instanceof WP_Error) {
+                return "Error: " . $feed->get_error_message();
+            } else {
+                return "Unknown error";
+            }
         }
-
 
         $itemQty = $feed->get_item_quantity();
         $updated = 0;
@@ -276,10 +292,19 @@ class RSS_Feed extends RSS_Base {
     function getList($options = array()) {
         $plugin = RSS_Plugin::getInstance();
 
-        $feedList = $plugin->db()->get_results(
-            'select * FROM ' . $plugin->getTableName('feed') . ' ORDER BY fupdated ASC',
-            ARRAY_A
-        );
+        $sql = 'select * FROM ' . $plugin->getTableName('feed') . ' WHERE 1=1';
+
+        if (isset($options['fid']) && $options['fid'] != null) {
+            if (is_array($options['fid']) && count($options['fid']) > 0) {
+                $sql .= ' AND fid IN (' . join(',', esc_sql($options['fid'])). ')';
+            } else {
+                $sql .= ' AND fid = ' . intval($options['fid']);
+            }
+        }
+
+        $sql .= ' ORDER BY fupdated ASC';
+
+        $feedList = $plugin->db()->get_results($sql, ARRAY_A);
 
         return $feedList;
     }
