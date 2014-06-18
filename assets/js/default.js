@@ -69,20 +69,13 @@ jQuery(document).ready(function() {
     }
 
 
-    var feedInfo = false;
-    jQuery('form.addfeed input[name=furl]').on('input', function() {
-        if (!isValidUrl(jQuery(this).val())) return;
-        if (feedInfo) return;
-        var form = jQuery(this).closest('form');
-        var postData = form.serialize() + '&action=rssmagic&ajaxaction=feedinfo';
-        feedInfo = true;
-        jQuery.post(ajaxurl, postData , function(response) {
-            feedInfo = false;
-            if (response.code == 0) {
-                form.find('input[name=ftitle]').val(response.data.title);
-                form.find('textarea[name=fdescription]').val(response.data.description);
-            }
-        });
+    jQuery('form.addfeed input[name=furl]').on('paste', function() {
+        if (feedInfoTimeout) clearTimeout(feedInfoTimeout);
+        feedInfoTimeout = setTimeout("feedInfo()", 100);
+    });
+    jQuery('form.addfeed input[name=furl]').on('keyup', function() {
+        if (feedInfoTimeout) clearTimeout(feedInfoTimeout);
+        feedInfoTimeout = setTimeout("feedInfo()", 500);
     });
 
 
@@ -125,6 +118,42 @@ function updateOne() {
             setTimeout('updateOne()', 100);
         }
     });
+}
+
+var feedInfoAjax = false;
+var feedInfoTimeout;
+function feedInfo() {
+    var form = jQuery('form.addfeed');
+    var url = form.find('input[name=furl]').val();
+    if (!isValidUrl(url) || feedInfoAjax) return;
+    var postData = form.serialize() + '&action=rssmagic&ajaxaction=feedinfo';
+    feedInfoAjax = true;
+    jQuery.post(ajaxurl, postData , function(response) {
+        feedInfoAjax = false;
+        if (response.code == 0) {
+            if (response.data.urlFound) {
+                showMessage('Feed URL is already in database');
+            } else if (response.data.hostFound) {
+                showMessage('Feed HOST is already in database with url ' + response.data.hostFound.furl);
+            }
+            if (response.data.feed) {
+                form.find('input[name=ftitle]').val(response.data.feed.title);
+                form.find('textarea[name=fdescription]').val(response.data.feed.description);
+            } else {
+                showMessage('Invalid feed format');
+            }
+        }
+    });
+}
+
+function showMessage(text) {
+    jQuery('#rss-message p').text(text);
+    jQuery('#rss-message').removeClass('error');
+    jQuery('#rss-message').show();
+}
+
+function hideMessage() {
+    jQuery('#rss-message').hide();
 }
 
 

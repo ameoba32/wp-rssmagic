@@ -69,17 +69,15 @@ class RSS_Feed extends RSS_Base {
      * @param int $feedId
      */
     function delete($feedId) {
-        global $wpdb;
-
-        $wpdb->delete(
-            "wp_rssmagic_item",
+        $this->db()->delete(
+            $this->getTableName('item'),
             array(
                 'ffeed_id' => $feedId,
             )
         );
 
-        $wpdb->delete(
-            "wp_rssmagic_feed",
+        $this->db()->delete(
+            $this->getTableName('feed'),
             array(
                 'fid' => $feedId,
             )
@@ -93,62 +91,39 @@ class RSS_Feed extends RSS_Base {
      * @return array|null
      */
     function getInfo($url) {
+        $result = array();
+        // Check if same URL is alredy added
+        $result['urlFound'] = $this->db()->get_row(
+            $this->db()->prepare(
+                'select * FROM ' . $this->getTableName('feed') . ' WHERE furl = %s',
+                $url
+            ),
+            ARRAY_A
+        );
+
+        // Check if host is already in database
+        $hostName = parse_url($url, PHP_URL_HOST);
+        $result['hostFound'] = $this->db()->get_row(
+            $this->db()->prepare(
+                'select * FROM ' . $this->getTableName('feed') .
+                ' WHERE furl LIKE %s OR furl LIKE %s' .
+                'ORDER BY fupdated ASC',
+                '%'.$hostName.'%',
+                '%'.str_replace('www.', '', $hostName).'%'
+            ),
+            ARRAY_A
+        );
+
+        // Fetch feed information from net
         $feed = fetch_feed( $url );
         if ($feed instanceof SimplePie) {
-            return array(
+            $result['feed'] = array(
                 'title' => $feed->get_title(),
                 'description' => $feed->get_description(),
             );
-        } else {
-            return null;
         }
-    }
 
-
-    /**
-     * Downloads all feed data
-     */
-    function download() {
-        $plugin = RSS_Plugin::getInstance();
-
-            $feedList = $plugin->db()->get_results(
-                'select * FROM ' . $plugin->getTableName('feed') . ' ORDER BY fupdated ASC',
-                ARRAY_A
-            );
-
-        foreach($feedList as $rowFeed) {
-            $feed = fetch_feed( $rowFeed['furl'] );
-
-            $plugin->db()->update(
-                $plugin->getTableName('feed'),
-                array(
-                    'fupdated' => date('Y-m-d H:i:s'),
-                ),
-                array('fid' => $rowFeed['fid'])
-            );
-
-            if (!$feed instanceof SimplePie) {
-                continue;
-            }
-
-            $updated = 0;
-            $itemQty = $feed->get_item_quantity();
-            for ($i = 0; $i < $itemQty; $i++) {
-                $item = $feed->get_item($i);
-
-                $updated += $plugin->db()->insert(
-                    $plugin->getTableName('item'),
-                    array(
-                        'ffeed_id' => $rowFeed['fid'],
-                        'ftitle' => $item->get_title(),
-                        'fauthor' => $item->get_author()?$item->get_author()->get_name():null,
-                        'fdescription' => $item->get_description(),
-                        'furl' => $item->get_link(),
-                        'fdatetime' => $item->get_date('Y-m-d H:i:s'),
-                    )
-                );
-            }
-        }
+        return $result;
     }
 
     /**
@@ -266,6 +241,10 @@ class RSS_Feed extends RSS_Base {
                 continue;
             }
 
+            $itemDate = $item->get_date('Y-m-d H:i:s');
+            if ($itemDate == null) {
+                $itemDate = date('Y-m-d H:i:s');
+            }
             $this->db()->insert(
                 $this->getTableName('item'),
                 array(
@@ -274,7 +253,7 @@ class RSS_Feed extends RSS_Base {
                     'fauthor' => $item->get_author()?$item->get_author()->get_name():null,
                     'fdescription' => $item->get_description(),
                     'furl' => $item->get_link(),
-                    'fdatetime' => $item->get_date('Y-m-d H:i:s'),
+                    'fdatetime' => $itemDate,
                 )
             );
             $updated++;
@@ -315,7 +294,6 @@ class RSS_Feed extends RSS_Base {
      * @return int post id
      */
     function createDigest() {
-        global $wpdb;
         $plugin = RSS_Plugin::getInstance();
 
         $interval = $plugin->getOption('digest_interval');
@@ -326,10 +304,10 @@ class RSS_Feed extends RSS_Base {
         }
 
         $feedList = array();
-        foreach($wpdb->get_results('select * FROM ' . $plugin->getTableName('feed'), ARRAY_A) as $row) {
+        foreach($this->db()->get_results('select * FROM ' . $plugin->getTableName('feed'), ARRAY_A) as $row) {
             $feed = $row;
-            $feed['items'] = $wpdb->get_results(
-                $wpdb->prepare(
+            $feed['items'] = $this->db()->get_results(
+                $this->db()->prepare(
                     'select * FROM ' . $plugin->getTableName('item') . ' WHERE ffeed_id = %d AND fdatetime >= %s ORDER BY fdatetime ASC',
                     $row['fid'],
                     $interval->format('Y-m-d H:i:s')

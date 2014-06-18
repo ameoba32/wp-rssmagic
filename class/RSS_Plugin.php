@@ -187,12 +187,18 @@ class RSS_Plugin extends RSS_Base {
 
     function actionAddfeed() {
         $feed = new RSS_Feed();
-        if (isset($_POST['_wpnonce'])) {
+        if ($this->request('_wpnonce') != null) {
             $feed->save($_REQUEST);
             $this->ajaxResponse(0, 'Feed added', array(), '?page=' . $this->pageName('setup') . '&action=feedlist');
-        } else {
-            $this->setTemplateVariable('data', $feed->load($_REQUEST['id']));
         }
+
+        // Load fee for editing
+        if ($this->request('id')) {
+            $this->setTemplateVariable('data', $this->request('id'));
+        } else {
+            $this->setTemplateVariable('data', '');
+        }
+
         $this->setTemplateVariable('page', 'feed');
         $this->render('addfeed');
     }
