@@ -173,7 +173,6 @@ class RSS_Plugin extends RSS_Base {
      * Admin CMS pages
      *
      */
-
     function actionGeneral() {
         $this->actionFeedlist();
     }
@@ -230,7 +229,6 @@ class RSS_Plugin extends RSS_Base {
         $this->render('viewfeed', array('list' => $list));
     }
 
-
     /**
      * Update now support
      */
@@ -252,7 +250,6 @@ class RSS_Plugin extends RSS_Base {
         $stats = $feed->downloadOne($this->request('id'));
         $this->ajaxResponse(0, '', $stats);
     }
-
 
 
     function actionFeedback() {
@@ -287,6 +284,10 @@ class RSS_Plugin extends RSS_Base {
         ));
     }
 
+    function actionSettings() {
+        $this->setTemplateVariable('page', 'settings');
+        $this->render('settings');
+    }
 
     function getVersion() {
         $data = get_plugin_data($this->_rootFile);
